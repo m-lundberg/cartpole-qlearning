@@ -48,7 +48,7 @@ def train(num_episodes, step_limit):
         if solves:
             print(f'Consecutive solves: {solves}')
 
-            if solves > 100:
+            if solves >= 100:
                 # Problem considered solved
                 print('Problem solved')
                 break
@@ -75,22 +75,6 @@ def train(num_episodes, step_limit):
             observation = next_observation
 
 
-def balance():
-    while True:
-        state = env.reset()
-
-        while True:
-            env.render()
-
-            action = agent.choose_action(str(state), env.action_space)
-            next_state, reward, done, info = env.step(action)
-
-            if done:
-                break
-
-            state = next_state
-
-
 if __name__ == '__main__':
     episodes = 1000
     max_steps = 250
@@ -102,7 +86,5 @@ if __name__ == '__main__':
 
     from pprint import pprint
     pprint(agent.Q)
-
-    balance()
 
     env.close()
