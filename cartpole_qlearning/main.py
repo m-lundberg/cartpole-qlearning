@@ -1,9 +1,10 @@
+import math
 import gym
 from cartpole_qlearning.agent import QLearningAgent
 
 
 def discretize(value, num_bins, lower, upper):
-    if value < lower:
+    if value < lower or num_bins == 1:
         return 0
     if value > upper:
         return num_bins - 1
@@ -12,20 +13,50 @@ def discretize(value, num_bins, lower, upper):
 
 
 def to_state(observation):
-    # print(observation)
-    return str([discretize(s, 20, env.observation_space.low[i], env.observation_space.high[i]) for i, s in enumerate(observation)])
+    state_limits = list(zip(env.observation_space.low, env.observation_space.high))
+    state_limits[1] = [-0.5, 0.5]
+    state_limits[2] = [-math.radians(12), math.radians(12)]
+    state_limits[3] = [-math.radians(50), math.radians(50)]
+
+    bins = [1, 1, 6, 5]
+
+    return tuple(discretize(s, bins[j], state_limits[j][0], state_limits[j][1]) for j, s in enumerate(observation))
 
 
-def train(episodes, step_limit, epsilon):
-    for episode in range(episodes):
-        if not episode % 100:
-            pass
-            # print('Starting episode {}'.format(episode))
+def get_epsilon(episode):
+    # get the probability of picking a random action (exploration)
+    start_epsilon = 1.0
+    min_epsilon = 0.01
+    return max(min_epsilon, min(start_epsilon, 1.0 - math.log10((episode+1) / 25)))
+
+
+def get_alpha(episode):
+    # get the learning rate
+    start_alpha = 0.5
+    min_alpha = 0.1
+    return max(min_alpha, min(start_alpha, 1.0 - math.log10((episode+1) / 25)))
+
+
+def train(num_episodes, step_limit):
+    solves = 0
+
+    for episode in range(num_episodes):
+        epsilon = get_epsilon(episode)
+        alpha = get_alpha(episode)
+
+        print(f'Starting episode {episode} using epsilon {epsilon} and alpha {alpha}')
+        if solves:
+            print(f'Consecutive solves: {solves}')
+
+            if solves > 100:
+                # Problem considered solved
+                print('Problem solved')
+                break
 
         observation = env.reset()
 
         for t in range(step_limit):
-            # env.render()
+            env.render()
 
             state = to_state(observation)
 
@@ -33,10 +64,14 @@ def train(episodes, step_limit, epsilon):
             next_observation, reward, done, info = env.step(action)
 
             if done:
+                if t > 195:
+                    solves += 1
+                else:
+                    solves = 0
                 break
 
             next_state = to_state(next_observation)
-            agent.learn(state, action, reward, next_state)
+            agent.learn(state, action, reward, alpha, next_state)
             observation = next_observation
 
 
@@ -57,22 +92,16 @@ def balance():
 
 
 if __name__ == '__main__':
-    episodes = 10000
-    step_limit = 100
+    episodes = 1000
+    max_steps = 250
 
     env = gym.make('CartPole-v0')
-    agent = QLearningAgent(env.action_space.n, 0.4, 0.99)
+    agent = QLearningAgent(env.action_space.n, 0.99)
 
-    epsilon = 0.9  # probability of picking a random action (exploration)
+    train(episodes, max_steps)
 
-    for i in range(10):
-        print('Starting episode {e} with epsilon {eps}'.format(e=i*episodes/10, eps=epsilon))
-        train(int(episodes / 10), step_limit, epsilon)
-        epsilon -= 0.1
-
-        if epsilon < 0.1:
-            epsilon = 0.1
-    print(agent.Q)
+    from pprint import pprint
+    pprint(agent.Q)
 
     balance()
 
